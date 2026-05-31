@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-import { searchLocation_model } from "../models/msearchLocation.js";
+import searchLocation_model from "../models/msearchLocation.js";
 import { ScrapForFeed } from "../algorithms/ScrapForFeed.js";
-import { usermodel } from "../models/muser.js";
+import usermodel from "../models/muser.js";
 
 const getTextByCount = async (id) => {
 
@@ -22,7 +22,7 @@ const getTextByCount = async (id) => {
 
 
   if (resultByCount.length === 0 && resultByUpdatedAt.length === 0) {
-    return [];
+    return ["news", "technology", "sports", "entertainment", "business", "science", "health", "world"];
   }
 
   const textArrayForCount = resultByCount.map(item => item.text);
@@ -51,6 +51,7 @@ const getTextByCount = async (id) => {
   if (interleavedArray.length === 0) {
     return [];
   }
+  console.log("[DEBUG] getTextByCount result:", interleavedArray);
   return interleavedArray;
 };
 
@@ -59,23 +60,31 @@ let TextArray = [];
 
 
 const ByText = async (req, res) => {
-
-
   try {
     const { id } = req.user;
-
     const textId = req.params.textId;
+    const page = parseInt(req.query.page) || 0;
+
+    console.log("[DEBUG] ByText called, textId:", textId, "page:", page);
 
     if (textId == 0) {
       TextArray = (await getTextByCount(id));
+      console.log("[DEBUG] TextArray populated:", TextArray);
     }
 
     let firstelement = [];
 
-    firstelement.push(TextArray[textId]);
+    if (TextArray[textId]) {
+      firstelement.push(TextArray[textId]);
+      console.log("[DEBUG] Searching for:", firstelement);
+    } else {
+      console.log("[DEBUG] TextArray[textId] is empty/undefined. TextArray:", TextArray, "textId:", textId);
+      return res.status(202).json({ success: true, partialArticles: [], hasMore: false });
+    }
 
-    let ArticlesByText = (await ScrapForFeed(firstelement));
-    return res.status(202).json({ success: true, partialArticles: ArticlesByText });
+    const { articles, hasMore } = await ScrapForFeed(firstelement, page);
+    console.log("[DEBUG] ScrapForFeed returned", articles.length, "articles (page", page, ", hasMore:", hasMore, ")");
+    return res.status(202).json({ success: true, partialArticles: articles, hasMore });
   } catch (error) {
     console.error("Error fetching user feed:\n", error);
     return res.status(210).json({ message: "Internal Server Error" });
@@ -87,51 +96,33 @@ let userTopics = [];
 
 
 const ByTopic = async (req, res) => {
-
   try {
-
     const { id } = req.user;
-
     const topicId = req.params.topicId;
+    const page = parseInt(req.query.page) || 0;
 
     if (topicId == 0) {
-
       const user = await usermodel.findById(id);
-
       if (!user) {
-
         return res.status(210).json({ message: "User not found" });
       }
-
-
-      let OneElementArray = [];
-      OneElementArray.push(user.topics[topicId]);
-
-
-      let ArticlesByTopic = (await ScrapForFeed(OneElementArray));
-
-      return res.status(202).json({ success: true, partialArticles: ArticlesByTopic });
-
-    } else {
-
-
-      let OneElementArray = [];
-
-      OneElementArray.push(userTopics[topicId]);
-
-      let ArticlesByTopic = (await ScrapForFeed(OneElementArray));
-
-      return res.status(202).json({ success: true, partialArticles: ArticlesByTopic });
-
+      userTopics = user.topics || [];
     }
 
+    let OneElementArray = [];
+    if (userTopics[topicId]) {
+      OneElementArray.push(userTopics[topicId]);
+    } else {
+      return res.status(202).json({ success: true, partialArticles: [], hasMore: false });
+    }
+
+    const { articles, hasMore } = await ScrapForFeed(OneElementArray, page);
+    return res.status(202).json({ success: true, partialArticles: articles, hasMore });
+
   } catch (error) {
-
     console.error("Error fetching user feed:\n", error);
-
     return res.status(210).json({ message: "Internal Server Error" });
-
   }
-}
+};
 
 export { ByText, ByTopic };

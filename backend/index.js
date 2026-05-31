@@ -8,6 +8,8 @@ import quicksearchroute from './routes/rquicksearch.js';
 import providerroute from './routes/rNewsProvider.js';
 import quiz_router from './routes/rquiz.js';
 import sendemailroute from './routes/rsendemail.js';
+import feedroute from './routes/rfeed.js';
+import userdoroute from './routes/ruserdo.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -49,12 +51,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/api/checkauth", checkAuth);
+app.get("/api/checkauth", checkAuth, (req, res) => {
+  res.status(200).json({ success: true, message: "Authorized", user: req.user });
+});
 app.use("/api/user", userroute);
 app.use("/api/sendemail", sendemailroute);
 app.use("/api/quicksearch", checkAuth, quicksearchroute);
 app.use("/api/provider", checkAuth, providerroute);
 app.use("/api/quiz", checkAuth, quiz_router);
+app.use("/api/myfeed", checkAuth, feedroute);
+app.use("/api/userdo", checkAuth, userdoroute);
 app.get('/',(req,res)=> {res.status(202).send("Hello Backend myproject1")});
 
 app.listen(port, () => {

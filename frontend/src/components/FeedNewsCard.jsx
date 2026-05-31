@@ -44,12 +44,12 @@ const FeedNewsCard = (props) => {
       const ArticleDetails = { title: props.title, link: props.link };
 
       const result = await POST("/api/userdo/isBookmarked", ArticleDetails);
+      if (!result?.data) return;
       if (result.data.success) {
         setBookmarked(result.data.bookmarked);
       }
       if (result.data?.caught) {
         navigate('/login'); return;
-        // toast.error(result.data.message);
       }
     };
 
@@ -61,22 +61,20 @@ const FeedNewsCard = (props) => {
       const ArticleDetails = { title: props.title };
 
       const result = await POST("/api/userdo/isLiked", ArticleDetails);
-      if (result.data.success) {
+      if (result?.data?.success) {
         setLiked(result.data.liked);
       }
-      if (result.data?.caught) {
+      if (result?.data?.caught) {
         navigate('/login'); return;
-        // toast.error(result.data.message);
       }
 
       const NumLikesResult = await POST("/api/userdo/numLikes", ArticleDetails);
-      if (NumLikesResult.data.success) {
+      if (NumLikesResult?.data?.success) {
         setNumLikes(NumLikesResult.data.numLikes);
       }
 
-      if(NumLikesResult.data?.caught) {
+      if (NumLikesResult?.data?.caught) {
         navigate('/login'); return;
-        // toast.error(NumLikesResult.data.message);
       }
     })();
   }, [props.title, numLikes, navigate]);
@@ -86,12 +84,11 @@ const FeedNewsCard = (props) => {
       const numCommentsResult = await POST("/api/userdo/numComments", {
         articleURL: props.link,
       });
-      if (numCommentsResult.data.success) {
+      if (numCommentsResult?.data?.success) {
         setNumComments(numCommentsResult.data.numComments);
       }
-      if (numCommentsResult.data?.caught) {
+      if (numCommentsResult?.data?.caught) {
         navigate('/login'); return;
-        // toast.error(numCommentsResult.data.message);
       }
     })();
   }, [props.link, numComments, navigate]);

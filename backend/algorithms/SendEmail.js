@@ -53,7 +53,8 @@ async function sendEmail(username, email, code, CheckUserExist) {
     return result;
   } catch (err) {
     console.error("Email sending failed:", err.message);
-    throw err;  // Re-throw so callers know it failed
+    // Re-throw so callers know it failed
+    throw err;
   }
 }
 
