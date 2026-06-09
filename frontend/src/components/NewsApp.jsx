@@ -640,7 +640,7 @@ export default function NewsApp() {
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem('nb-theme');
     if (saved) return saved === 'dark';
-    return true; // dark-first by design
+    return false; // light-first by default
   });
   const [loading, setLoading] = useState(true);
   const [articles, setArticles] = useState([]);
