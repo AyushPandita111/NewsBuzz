@@ -9,6 +9,9 @@ import providerroute from './routes/rNewsProvider.js';
 import quiz_router from './routes/rquiz.js';
 import sendemailroute from './routes/rsendemail.js';
 import feedroute from './routes/rfeed.js';
+import newsroute from './routes/rnews.js';
+import { getCategories } from './controllers/cnews.js';
+import { startNewsScheduler } from './algorithms/newsAggregator.js';
 import userdoroute from './routes/ruserdo.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -60,9 +63,13 @@ app.use("/api/quicksearch", checkAuth, quicksearchroute);
 app.use("/api/provider", checkAuth, providerroute);
 app.use("/api/quiz", checkAuth, quiz_router);
 app.use("/api/myfeed", checkAuth, feedroute);
+app.use("/api/news", newsroute); // public multi-source feed + AI glance/chat (no auth)
+app.get("/api/categories", getCategories); // public list of category names
 app.use("/api/userdo", checkAuth, userdoroute);
 app.get('/',(req,res)=> {res.status(202).send("Hello Backend myproject1")});
 
 app.listen(port, () => {
   console.log(`listening at port : ${port}`);
+  // Warm the homepage cache immediately, then refresh every 15 minutes.
+  startNewsScheduler();
 });

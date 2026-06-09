@@ -26,6 +26,14 @@
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js">
   </script>
 
+  <!-- Tailwind Play CDN — utilities only (preflight off so it doesn't reset MUI/Bootstrap pages) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      corePlugins: { preflight: false },
+    };
+  </script>
+
 </head>
 
 <body>
