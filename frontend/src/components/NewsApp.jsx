@@ -158,6 +158,9 @@ const styles = `
 /* Breaking-news ticker */
 .ticker-track { display: inline-flex; align-items: center; white-space: nowrap; will-change: transform; animation: ticker 38s linear infinite; }
 .ticker-wrap:hover .ticker-track { animation-play-state: paused; }
+/* Explicit color beats Bootstrap's .text-secondary !important so the text stays visible */
+.ticker-link { color: var(--text-secondary) !important; }
+.ticker-link:hover { color: var(--accent) !important; }
 @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 var(--accent); animation: livePulse 1.6s infinite; }
@@ -459,7 +462,7 @@ const Ticker = ({ articles, onOpen }) => {
   const items = articles.slice(0, 8);
   const row = (keyPrefix) =>
     items.map((a, i) => (
-      <a key={`${keyPrefix}-${i}`} href={a.link} target="_blank" rel="noopener noreferrer" onClick={openOnClick(a, onOpen)} className="inline-flex items-center text-sm text-secondary hover:text-accent transition-colors">
+      <a key={`${keyPrefix}-${i}`} href={a.link} target="_blank" rel="noopener noreferrer" onClick={openOnClick(a, onOpen)} className="ticker-link inline-flex items-center text-sm transition-colors">
         <span className="mx-4 text-accent">◆</span>
         <span className="font-medium">{a.title}</span>
       </a>
