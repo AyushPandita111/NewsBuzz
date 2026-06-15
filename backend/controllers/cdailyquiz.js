@@ -38,6 +38,27 @@ const isCorrectAnswer = (question, userAnswer) => {
   return norm(question.correct_answer) === norm(userAnswer);
 };
 
+/**
+ * Grades a merged map of answers (question_id → { user_answer, time_taken_ms })
+ * against the quiz, server-side. Returns the score and the normalized answer
+ * rows ready to store on an attempt or feed to buildResults().
+ */
+const gradeAnswers = (quiz, mergedMap) => {
+  let score = 0;
+  const answers = quiz.questions.map((q) => {
+    const a = mergedMap.get(String(q._id));
+    const correct = a ? isCorrectAnswer(q, a.user_answer) : false;
+    if (correct) score += 1;
+    return {
+      question_id: String(q._id),
+      user_answer: a ? a.user_answer : null,
+      is_correct: correct,
+      time_taken_ms: a ? Math.max(0, Number(a.time_taken_ms) || 0) : 0,
+    };
+  });
+  return { score, answers };
+};
+
 const getPublishedQuiz = (date) => dailyQuizModel.findOne({ date, status: 'published' });
 
 /** Question as the client may see it BEFORE submitting (no answer/explanation/source link). */
@@ -139,10 +160,10 @@ const getQuizMeta = async (req, res) => {
 // ---------------------------------------------------------------------------
 const getToday = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user ? req.user.id : null;
     const [quiz, stats] = await Promise.all([
       getPublishedQuiz(todayStr()),
-      userQuizStatsModel.findOne({ userId }).lean(),
+      userId ? userQuizStatsModel.findOne({ userId }).lean() : null,
     ]);
 
     const common = {
@@ -150,6 +171,7 @@ const getToday = async (req, res) => {
       date: todayStr(),
       resetInMs: msUntilNextReset(),
       streak: stats?.current_streak || 0,
+      guest: !userId,
     };
 
     if (!quiz) {
@@ -160,7 +182,8 @@ const getToday = async (req, res) => {
       });
     }
 
-    const attempt = await quizAttemptModel.findOne({ userId, quizId: quiz._id }).lean();
+    // Guests have no saved attempt — they always start fresh.
+    const attempt = userId ? await quizAttemptModel.findOne({ userId, quizId: quiz._id }).lean() : null;
     const attemptStatus = !attempt ? 'not_started' : attempt.status === 'completed' ? 'completed' : 'in_progress';
 
     return res.status(200).json({
@@ -188,10 +211,16 @@ const getToday = async (req, res) => {
 // ---------------------------------------------------------------------------
 const startToday = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user ? req.user.id : null;
     const quiz = await getPublishedQuiz(todayStr());
     if (!quiz) {
       return res.status(404).json({ success: false, message: "Today's quiz is being prepared, check back soon!" });
+    }
+
+    // Guests play without a persisted attempt: hand back a sentinel id and let
+    // the client drive the session. Grading happens at submit time.
+    if (!userId) {
+      return res.status(200).json({ success: true, attempt_id: 'guest', resumed: false, guest: true });
     }
 
     const existing = await quizAttemptModel.findOne({ userId, quizId: quiz._id });
@@ -227,6 +256,10 @@ const startToday = async (req, res) => {
 // ---------------------------------------------------------------------------
 const saveProgress = async (req, res) => {
   try {
+    // Guests have nothing to persist — accept the call as a no-op so the
+    // client's background save doesn't error.
+    if (!req.user) return res.status(200).json({ success: true, saved: 0, guest: true });
+
     const { attempt_id, question_id, user_answer, time_taken_ms } = req.body || {};
     const attempt = await quizAttemptModel.findOne({ _id: attempt_id, userId: req.user.id });
     if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
@@ -256,8 +289,33 @@ const saveProgress = async (req, res) => {
 // ---------------------------------------------------------------------------
 const submitToday = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user ? req.user.id : null;
     const { attempt_id, answers } = req.body || {};
+
+    // ---- Guest submit: grade against today's quiz, persist nothing. ----
+    if (!userId) {
+      const quiz = await getPublishedQuiz(todayStr());
+      if (!quiz) return res.status(404).json({ success: false, message: 'No quiz today' });
+
+      const merged = new Map();
+      for (const a of Array.isArray(answers) ? answers : []) {
+        if (!a || !a.question_id) continue;
+        merged.set(String(a.question_id), { user_answer: a.user_answer, time_taken_ms: a.time_taken_ms });
+      }
+      const { score, answers: graded } = gradeAnswers(quiz, merged);
+
+      return res.status(200).json({
+        success: true,
+        guest: true,
+        score,
+        total_questions: quiz.questions.length,
+        duration_ms: null,
+        results: buildResults(quiz, { answers: graded }),
+        streak: { current: 0, longest: 0, increased: false },
+        new_badges: [],
+        resetInMs: msUntilNextReset(),
+      });
+    }
 
     const attempt = await quizAttemptModel.findOne({ _id: attempt_id, userId });
     if (!attempt) return res.status(404).json({ success: false, message: 'Attempt not found' });
@@ -289,18 +347,8 @@ const submitToday = async (req, res) => {
     }
 
     // Grade strictly server-side against the stored quiz.
-    let score = 0;
-    attempt.answers = quiz.questions.map((q) => {
-      const a = merged.get(String(q._id));
-      const correct = a ? isCorrectAnswer(q, a.user_answer) : false;
-      if (correct) score += 1;
-      return {
-        question_id: String(q._id),
-        user_answer: a ? a.user_answer : null,
-        is_correct: correct,
-        time_taken_ms: a ? a.time_taken_ms : 0,
-      };
-    });
+    const { score, answers: graded } = gradeAnswers(quiz, merged);
+    attempt.answers = graded;
 
     attempt.score = score;
     attempt.total_questions = quiz.questions.length;
@@ -340,6 +388,11 @@ const submitToday = async (req, res) => {
 // ---------------------------------------------------------------------------
 const getTodayResults = async (req, res) => {
   try {
+    // Results are persisted per account; guests keep them only client-side
+    // (in the page state) right after submitting.
+    if (!req.user) {
+      return res.status(200).json({ success: false, guest: true, message: 'Sign in to view saved results.' });
+    }
     const userId = req.user.id;
     const quiz = await getPublishedQuiz(todayStr());
     if (!quiz) return res.status(404).json({ success: false, message: 'No quiz today' });

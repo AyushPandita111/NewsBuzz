@@ -64,7 +64,7 @@ app.use("/api/sendemail", sendemailroute);
 app.use("/api/quicksearch", checkAuth, quicksearchroute);
 app.use("/api/provider", checkAuth, providerroute);
 app.get("/api/quiz/meta", getQuizMeta); // public — is today's quiz live? (homepage banner)
-app.use("/api/quiz", checkAuth, quiz_router);
+app.use("/api/quiz", quiz_router); // auth applied per-route (play is open to guests)
 app.use("/api/myfeed", checkAuth, feedroute);
 app.use("/api/news", newsroute); // public multi-source feed + AI glance/chat (no auth)
 app.get("/api/categories", getCategories); // public list of category names

@@ -2,6 +2,8 @@ import express from "express";
 const router = express.Router();
 import { getQuiz } from "../controllers/cquiz.js";
 import checkAdmin from "../middleware/checkAdmin.js";
+import checkAuth from "../middleware/checkAuth.js";
+import optionalAuth from "../middleware/optionalAuth.js";
 import {
   getToday,
   startToday,
@@ -15,19 +17,23 @@ import {
 } from "../controllers/cdailyquiz.js";
 
 // Legacy random-trivia quiz (kept for backwards compatibility).
-router.get("/getquestions", getQuiz);
+router.get("/getquestions", checkAuth, getQuiz);
 
-// Daily News Quiz — the whole router is mounted behind checkAuth in index.js.
-router.get("/today", getToday);
-router.post("/today/start", startToday);
-router.post("/today/progress", saveProgress);
-router.post("/today/submit", submitToday);
-router.get("/today/results", getTodayResults);
-router.get("/stats", getStats);
-router.get("/leaderboard", getLeaderboard);
-router.get("/history", getHistory);
+// Daily News Quiz.
+// Playing is open to everyone (optionalAuth): guests can play and get graded
+// results, while logged-in users additionally get saved attempts, streaks,
+// badges and a leaderboard spot. The account-only endpoints stay behind
+// checkAuth.
+router.get("/today", optionalAuth, getToday);
+router.post("/today/start", optionalAuth, startToday);
+router.post("/today/progress", optionalAuth, saveProgress);
+router.post("/today/submit", optionalAuth, submitToday);
+router.get("/today/results", optionalAuth, getTodayResults);
+router.get("/stats", checkAuth, getStats);
+router.get("/leaderboard", checkAuth, getLeaderboard);
+router.get("/history", checkAuth, getHistory);
 
 // Admin: force-regenerate a day's quiz (requires x-admin-key header too).
-router.post("/admin/regenerate", checkAdmin, adminRegenerate);
+router.post("/admin/regenerate", checkAuth, checkAdmin, adminRegenerate);
 
 export default router;

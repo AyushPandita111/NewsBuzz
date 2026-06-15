@@ -137,8 +137,6 @@ const answerLabel = (q, answer) => {
   return String(answer);
 };
 
-const isAuthFailure = (res) => !res || !res.data || res.data.caught || res.data.success === false && /token|authoriz/i.test(res.data.message || '');
-
 // ---------------------------------------------------------------------------
 // Shareable result card — drawn on a canvas, shared via Web Share API with
 // download / copy-image fallbacks.
@@ -434,16 +432,12 @@ export default function DailyQuiz() {
   );
 
   // ---- initial load ----
-  // Playing requires an account: anyone not logged in (or with an expired
-  // token) is sent to the login screen, then returned here afterwards.
+  // Open to everyone: guests play and get graded results, logged-in users also
+  // get saved progress, streaks and a completed-quiz state on revisit.
   const loadToday = useCallback(async () => {
-    if (!loggedIn) {
-      navigate('/login', { replace: true, state: { from: '/quiz' } });
-      return;
-    }
     const res = await GET('/api/quiz/today');
-    if (isAuthFailure(res)) {
-      navigate('/login', { replace: true, state: { from: '/quiz' } });
+    if (!res?.data?.success) {
+      setView('error');
       return;
     }
     const data = res.data;
@@ -458,7 +452,7 @@ export default function DailyQuiz() {
     }
     setAttemptId(data.attempt_id);
     setView('lobby');
-  }, [loggedIn, navigate]);
+  }, []);
 
   useEffect(() => { loadToday(); }, [loadToday]);
 
@@ -632,6 +626,21 @@ export default function DailyQuiz() {
   const renderPlayTab = () => {
     if (view === 'loading') return <Spinner />;
 
+    if (view === 'error') {
+      return (
+        <div className="text-center py-24 fade-in-up">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h1 className="font-editorial text-3xl font-bold mb-3">Couldn't load today's quiz</h1>
+          <p className="text-secondary max-w-sm mx-auto mb-6">
+            Something went wrong reaching the server. Please try again.
+          </p>
+          <button className="qz-btn rounded-xl px-8 py-3" onClick={() => { setView('loading'); loadToday(); }}>
+            Retry
+          </button>
+        </div>
+      );
+    }
+
     if (view === 'unavailable') {
       return (
         <div className="text-center py-24 fade-in-up">
@@ -658,7 +667,7 @@ export default function DailyQuiz() {
             </p>
           </div>
           <div className="flex justify-center gap-3 mb-10 flex-wrap">
-            <StatChip label="Current streak" value={`🔥 ${today?.streak ?? 0}`} />
+            {loggedIn && <StatChip label="Current streak" value={`🔥 ${today?.streak ?? 0}`} />}
             <StatChip label="Questions" value={questions.length} />
             <StatChip label="Next quiz in" value={countdown || '—'} />
           </div>
@@ -666,7 +675,21 @@ export default function DailyQuiz() {
             <button className="qz-btn rounded-2xl px-12 py-4 text-lg" onClick={handleStart}>
               {resuming ? 'Resume Quiz →' : 'Start Quiz →'}
             </button>
-            <p className="text-xs text-muted mt-4">One attempt per day · no going back between questions</p>
+            <p className="text-xs text-muted mt-4">
+              {loggedIn ? 'One attempt per day · ' : ''}No going back between questions
+            </p>
+            {!loggedIn && (
+              <p className="text-xs text-muted mt-2">
+                Playing as guest —{' '}
+                <button
+                  onClick={() => navigate('/login', { state: { from: '/quiz' } })}
+                  className="text-accent font-semibold hover:underline"
+                >
+                  sign in
+                </button>{' '}
+                to save your streak and join the leaderboard.
+              </p>
+            )}
           </div>
         </div>
       );
@@ -736,13 +759,25 @@ export default function DailyQuiz() {
             <h1 className="font-editorial text-4xl md:text-5xl font-black mt-3">
               You scored {data.score}/{data.total_questions}! {emoji}
             </h1>
-            <p className="font-editorial text-xl font-bold mt-4">
-              <span className="qz-flame">🔥</span>{' '}
-              <span className="text-accent">{data.streak?.current ?? 0}-day streak</span>
-              {data.streak?.current >= (data.streak?.longest || 0) && data.streak?.current > 1 && (
-                <span className="text-muted text-sm font-semibold ml-2">— personal best!</span>
-              )}
-            </p>
+            {loggedIn ? (
+              <p className="font-editorial text-xl font-bold mt-4">
+                <span className="qz-flame">🔥</span>{' '}
+                <span className="text-accent">{data.streak?.current ?? 0}-day streak</span>
+                {data.streak?.current >= (data.streak?.longest || 0) && data.streak?.current > 1 && (
+                  <span className="text-muted text-sm font-semibold ml-2">— personal best!</span>
+                )}
+              </p>
+            ) : (
+              <p className="text-secondary text-sm mt-4 max-w-sm mx-auto">
+                <button
+                  onClick={() => navigate('/login', { state: { from: '/quiz' } })}
+                  className="text-accent font-bold hover:underline"
+                >
+                  Sign in
+                </button>{' '}
+                to save your streak, earn badges and climb the leaderboard.
+              </p>
+            )}
             {data.duration_ms != null && (
               <p className="text-sm text-muted mt-2">Finished in {fmtDuration(data.duration_ms)}</p>
             )}

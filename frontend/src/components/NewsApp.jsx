@@ -564,7 +564,6 @@ const QuizBanner = () => {
 
   const completed = quiz.status === 'completed';
   const inProgress = quiz.status === 'in_progress';
-  const guest = quiz.status === 'guest';
   const title = completed
     ? `You scored ${quiz.score}/${quiz.total} today 🎉`
     : inProgress
@@ -575,7 +574,7 @@ const QuizBanner = () => {
     : inProgress
       ? 'Pick up right where you left off.'
       : `${quiz.questionCount} questions on today’s top stories · ~3 min · one attempt per day`;
-  const cta = completed ? 'View results' : inProgress ? 'Resume quiz' : guest ? 'Sign in to play' : 'Start Quiz';
+  const cta = completed ? 'View results' : inProgress ? 'Resume quiz' : 'Start Quiz';
 
   return (
     <div
