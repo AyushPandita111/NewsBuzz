@@ -12,6 +12,8 @@ import feedroute from './routes/rfeed.js';
 import newsroute from './routes/rnews.js';
 import { getCategories } from './controllers/cnews.js';
 import { startNewsScheduler } from './algorithms/newsAggregator.js';
+import { startQuizScheduler } from './algorithms/quizGenerator.js';
+import { getQuizMeta } from './controllers/cdailyquiz.js';
 import userdoroute from './routes/ruserdo.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -61,6 +63,7 @@ app.use("/api/user", userroute);
 app.use("/api/sendemail", sendemailroute);
 app.use("/api/quicksearch", checkAuth, quicksearchroute);
 app.use("/api/provider", checkAuth, providerroute);
+app.get("/api/quiz/meta", getQuizMeta); // public — is today's quiz live? (homepage banner)
 app.use("/api/quiz", checkAuth, quiz_router);
 app.use("/api/myfeed", checkAuth, feedroute);
 app.use("/api/news", newsroute); // public multi-source feed + AI glance/chat (no auth)
@@ -72,4 +75,6 @@ app.listen(port, () => {
   console.log(`listening at port : ${port}`);
   // Warm the homepage cache immediately, then refresh every 15 minutes.
   startNewsScheduler();
+  // Daily News Quiz: seed badges, schedule 5 AM generation + startup catch-up.
+  startQuizScheduler();
 });

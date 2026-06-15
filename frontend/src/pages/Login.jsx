@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import {
   Grid,
@@ -38,6 +38,10 @@ export default function Login() {
   const [role, setRole] = useState("READER");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  // pages that require auth (e.g. /quiz) redirect here with their path in
+  // location.state.from — send the user back there after login
+  const redirectTo = location.state?.from || "/";
 
   const handleClickShowPassword = () => setShowPassword((show) => !show);
 
@@ -87,7 +91,7 @@ export default function Login() {
       if (result.data.success) {
         window.localStorage.setItem("token", result.data.token);
         toast.success("Logged in successfully");
-        navigate("/");
+        navigate(redirectTo);
       } else {
         toast.error(result.data.message);
       }

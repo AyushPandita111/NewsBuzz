@@ -15,6 +15,7 @@ import CreateChannel from "./pages/CreateChannel";
 import NewsProviderPage from "./pages/NewsProviderPage";
 import PageNotFound from "./pages/PageNotFound";
 import NewsApp from "./components/NewsApp";
+import DailyQuiz from "./pages/DailyQuiz";
 import { ThemeContextProvider, ThemeContext } from "./context/ThemeContext";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
@@ -104,6 +105,7 @@ function App() {
                 path="/"
                 element={<NewsApp />}
               />
+              <Route path="/quiz" element={<DailyQuiz />} />
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/myfeed" element={<MyFeed />} />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useId } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GET } from '../api';
 import GlancePanel from './GlancePanel';
 
@@ -531,6 +532,81 @@ const Navbar = ({ activeCategory, onSelect, isDark, onToggleDark, search, onSear
 };
 
 // ---------------------------------------------------------------------------
+// DAILY QUIZ BANNER — entry point to the Daily News Quiz (/quiz).
+// Quiz availability comes from the public /api/quiz/meta endpoint; if the
+// visitor is logged in we also fetch their attempt status + streak.
+// ---------------------------------------------------------------------------
+const QuizBanner = () => {
+  const navigate = useNavigate();
+  const [quiz, setQuiz] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const meta = await GET('/api/quiz/meta');
+      if (cancelled || !meta?.data?.success || !meta.data.available) return;
+      const next = { status: 'guest', streak: 0, questionCount: meta.data.questionCount };
+      if (localStorage.getItem('token')) {
+        const t = await GET('/api/quiz/today');
+        if (!cancelled && t?.data?.success && !t.data.caught) {
+          next.status = t.data.attempt_status || 'guest';
+          next.streak = t.data.streak || 0;
+          next.score = t.data.score;
+          next.total = t.data.total_questions;
+        }
+      }
+      if (!cancelled) setQuiz(next);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!quiz) return null;
+
+  const completed = quiz.status === 'completed';
+  const inProgress = quiz.status === 'in_progress';
+  const guest = quiz.status === 'guest';
+  const title = completed
+    ? `You scored ${quiz.score}/${quiz.total} today 🎉`
+    : inProgress
+      ? 'Your quiz is waiting ⏳'
+      : 'Today’s Quiz is Live 🔥';
+  const subtitle = completed
+    ? 'See the answers, explanations and today’s leaderboard.'
+    : inProgress
+      ? 'Pick up right where you left off.'
+      : `${quiz.questionCount} questions on today’s top stories · ~3 min · one attempt per day`;
+  const cta = completed ? 'View results' : inProgress ? 'Resume quiz' : guest ? 'Sign in to play' : 'Start Quiz';
+
+  return (
+    <div
+      className="card-container rounded-xl mt-6 px-5 sm:px-7 py-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 fade-in-up cursor-pointer group"
+      onClick={() => navigate('/quiz')}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && navigate('/quiz')}
+    >
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <span className="text-3xl flex-shrink-0">🧠</span>
+        <div className="min-w-0">
+          <h3 className="font-editorial text-lg font-bold text-primary leading-snug">{title}</h3>
+          <p className="text-sm text-secondary mt-0.5">{subtitle}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        {quiz.streak > 0 && (
+          <span className="bg-accent-soft text-accent text-sm font-bold px-3 py-1.5 rounded-full whitespace-nowrap">
+            🔥 {quiz.streak}-day streak
+          </span>
+        )}
+        <span className="bg-accent on-accent text-sm font-bold px-5 py-2.5 rounded-lg btn-glow whitespace-nowrap group-hover:opacity-90 transition-opacity">
+          {cta} →
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // SECTION HEADER
 // ---------------------------------------------------------------------------
 const SectionTitle = ({ children }) => (
@@ -731,6 +807,9 @@ export default function NewsApp() {
               Backend offline — showing sample stories. Start the API to load live multi-source headlines.
             </div>
           )}
+
+          {/* Daily News Quiz entry point */}
+          <QuizBanner />
 
           {search && !loading && (
             <p className="mt-4 text-sm text-muted">
