@@ -678,18 +678,6 @@ export default function DailyQuiz() {
             <p className="text-xs text-muted mt-4">
               {loggedIn ? 'One attempt per day · ' : ''}No going back between questions
             </p>
-            {!loggedIn && (
-              <p className="text-xs text-muted mt-2">
-                Playing as guest —{' '}
-                <button
-                  onClick={() => navigate('/login', { state: { from: '/quiz' } })}
-                  className="text-accent font-semibold hover:underline"
-                >
-                  sign in
-                </button>{' '}
-                to save your streak and join the leaderboard.
-              </p>
-            )}
           </div>
         </div>
       );
